@@ -1,0 +1,77 @@
+[
+ {
+  "allow_customization": 1,
+  "app": "supreme_utility",
+  "docstatus": 0,
+  "doctype": "Workspace",
+  "icon": "folder",
+  "indicator_color": "green",
+  "is_default": 0,
+  "is_standard": 1,
+  "is_hidden": 0,
+  "label": "Supreme",
+  "module": "Supreme Utility",
+  "name": "Supreme",
+  "owner": "Administrator",
+  "modified_by": "Administrator",
+  "public": 1,
+  "title": "Supreme",
+  "type": "Workspace",
+  "sequence_id": 1,
+  "content": "[{\"id\":\"hdr1\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Supreme</span>\",\"col\":12}},{\"id\":\"sc1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Calendar\",\"col\":3}},{\"id\":\"sc2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"PJP Plan\",\"col\":3}},{\"id\":\"sc3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"PJP Cycle\",\"col\":3}},{\"id\":\"sc4\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Lead\",\"col\":3}},{\"id\":\"sc5\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Leave Application\",\"col\":3}},{\"id\":\"sc6\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"AI Assistant\",\"col\":3}}]",
+  "shortcuts": [
+   {
+    "label": "Sales Calendar",
+    "type": "Page",
+    "link_to": "sales-calendar",
+    "color": "Green",
+    "icon": "calendar"
+   },
+   {
+    "label": "PJP Plan",
+    "type": "DocType",
+    "link_to": "PJP Plan",
+    "color": "Blue",
+    "icon": "file-text",
+    "doc_view": "List"
+   },
+   {
+    "label": "PJP Cycle",
+    "type": "Report",
+    "link_to": "PJP Cycle",
+    "color": "Grey",
+    "icon": "bar-chart",
+    "report_ref_doctype": "PJP Plan"
+   },
+   {
+    "label": "Lead",
+    "type": "DocType",
+    "link_to": "Lead",
+    "color": "Orange",
+    "icon": "users",
+    "doc_view": "List"
+   },
+   {
+    "label": "Leave Application",
+    "type": "DocType",
+    "link_to": "Leave Application",
+    "color": "Red",
+    "icon": "calendar",
+    "doc_view": "List"
+   },
+   {
+    "label": "AI Assistant",
+    "type": "Page",
+    "link_to": "ai-assistant",
+    "color": "Purple",
+    "icon": "chat"
+   }
+  ],
+  "links": [],
+  "charts": [],
+  "number_cards": [],
+  "quick_lists": [],
+  "custom_blocks": [],
+  "roles": []
+ }
+]

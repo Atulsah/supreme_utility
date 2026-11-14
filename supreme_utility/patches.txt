@@ -1,0 +1,5 @@
+[pre_model_sync]
+# (none: this is a fresh install)
+
+[post_model_sync]
+# (none: custom fields, expense types and the workspace are created by install.py on install/migrate)

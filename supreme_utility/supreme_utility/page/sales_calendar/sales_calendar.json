@@ -1,0 +1,18 @@
+{
+ "doctype": "Page",
+ "name": "sales-calendar",
+ "page_name": "sales-calendar",
+ "title": "Sales Calendar",
+ "module": "Supreme Utility",
+ "standard": "Yes",
+ "system_page": 0,
+ "icon": "calendar",
+ "roles": [
+  {"role": "Sales User"},
+  {"role": "Sales Manager"},
+  {"role": "HR User"},
+  {"role": "HR Manager"},
+  {"role": "Accounts User"},
+  {"role": "System Manager"}
+ ]
+}

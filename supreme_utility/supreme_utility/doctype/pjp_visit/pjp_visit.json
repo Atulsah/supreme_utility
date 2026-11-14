@@ -1,0 +1,230 @@
+{
+ "actions": [],
+ "creation": "2026-11-03 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "visit_with",
+  "party",
+  "party_name",
+  "organization_name",
+  "purpose",
+  "planned_date",
+  "expected_business",
+  "visit_remarks",
+  "is_unplanned",
+  "section_actual",
+  "actual_visit_date",
+  "visit_time",
+  "met_with",
+  "designation",
+  "contact_no",
+  "visit_result",
+  "order_value",
+  "column_break_actual",
+  "destination",
+  "sales_order",
+  "opportunity",
+  "next_follow_up_date",
+  "not_interested_reason",
+  "result_remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "visit_with",
+   "fieldtype": "Select",
+   "label": "Visit With",
+   "options": "Customer\nLead\nContact\nOther",
+   "reqd": 1,
+   "allow_on_submit": 1,
+   "read_only_depends_on": "eval:parent.docstatus==1 && !doc.__islocal",
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "party",
+   "fieldtype": "Dynamic Link",
+   "label": "Customer ID",
+   "options": "visit_with",
+   "allow_on_submit": 1,
+   "mandatory_depends_on": "eval:doc.visit_with=='Customer' || doc.visit_with=='Contact'",
+   "read_only_depends_on": "eval:parent.docstatus==1 && !doc.__islocal",
+   "in_list_view": 1,
+   "columns": 2,
+   "depends_on": "eval:doc.visit_with!='Other'"
+  },
+  {
+   "fieldname": "party_name",
+   "fieldtype": "Data",
+   "label": "Customer Name",
+   "allow_on_submit": 1,
+   "read_only_depends_on": "eval:(doc.visit_with!='Lead' && doc.visit_with!='Other') || doc.party || (parent.docstatus==1 && !doc.__islocal)",
+   "mandatory_depends_on": "eval:(doc.visit_with=='Lead' && !doc.party) || doc.visit_with=='Other'",
+   "in_list_view": 1,
+   "columns": 2,
+   "description": "For a Lead or Other you can type the name directly if no record exists."
+  },
+  {
+   "fieldname": "organization_name",
+   "fieldtype": "Data",
+   "label": "Organization Name",
+   "allow_on_submit": 1,
+   "in_list_view": 1,
+   "columns": 2,
+   "depends_on": "eval:doc.visit_with=='Lead'",
+   "read_only_depends_on": "eval:doc.party || (parent.docstatus==1 && !doc.__islocal)",
+   "description": "Company of the Lead (the Lead is the person). Filled automatically when a Lead is selected. Leave empty to use Customer Name as the company."
+  },
+  {
+   "fieldname": "purpose",
+   "fieldtype": "Select",
+   "label": "Purpose",
+   "options": "\nCold Call\nFollow-up\nOrder Finalization\nPayment Collection",
+   "reqd": 1,
+   "allow_on_submit": 1,
+   "read_only_depends_on": "eval:parent.docstatus==1 && !doc.__islocal",
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "planned_date",
+   "fieldtype": "Date",
+   "label": "Planned Date",
+   "depends_on": "eval:!doc.is_unplanned && parent.claim_mode!='Ad-Hoc Visit'",
+   "mandatory_depends_on": "eval:!doc.is_unplanned && parent.claim_mode!='Ad-Hoc Visit'",
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "expected_business",
+   "fieldtype": "Currency",
+   "label": "Expected Business",
+   "depends_on": "eval:!doc.is_unplanned && parent.claim_mode!='Ad-Hoc Visit'",
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "visit_remarks",
+   "fieldtype": "Small Text",
+   "label": "Visit Remarks"
+  },
+  {
+   "fieldname": "is_unplanned",
+   "fieldtype": "Check",
+   "label": "Unplanned Visit",
+   "read_only": 1,
+   "allow_on_submit": 1,
+   "no_copy": 1,
+   "depends_on": "eval:doc.is_unplanned",
+   "description": "Added during/after the trip. Not part of the original plan."
+  },
+  {
+   "fieldname": "section_actual",
+   "fieldtype": "Section Break",
+   "label": "Actual Result",
+   "depends_on": "eval:parent.docstatus==1 || parent.claim_mode=='Ad-Hoc Visit'"
+  },
+  {
+   "fieldname": "actual_visit_date",
+   "fieldtype": "Date",
+   "label": "Actual Date of Visit",
+   "allow_on_submit": 1,
+   "mandatory_depends_on": "eval:doc.is_unplanned || parent.claim_mode=='Ad-Hoc Visit'"
+  },
+  {
+   "fieldname": "met_with",
+   "fieldtype": "Data",
+   "label": "Met With",
+   "allow_on_submit": 1
+  },
+  {
+   "fieldname": "visit_result",
+   "fieldtype": "Select",
+   "label": "Visit Result",
+   "options": "\nOrder\nInterested\nFollow-up\nNot interested\nNot met",
+   "allow_on_submit": 1
+  },
+  {
+   "fieldname": "order_value",
+   "fieldtype": "Currency",
+   "label": "Order Value",
+   "allow_on_submit": 1
+  },
+  {
+   "fieldname": "column_break_actual",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sales_order",
+   "fieldtype": "Link",
+   "label": "Sales Order",
+   "options": "Sales Order",
+   "allow_on_submit": 1
+  },
+  {
+   "fieldname": "opportunity",
+   "fieldtype": "Link",
+   "label": "Opportunity",
+   "options": "Opportunity",
+   "allow_on_submit": 1
+  },
+  {
+   "fieldname": "next_follow_up_date",
+   "fieldtype": "Date",
+   "label": "Next Follow Up Date",
+   "allow_on_submit": 1
+  },
+  {
+   "fieldname": "not_interested_reason",
+   "fieldtype": "Small Text",
+   "label": "Reason for Not Interested",
+   "allow_on_submit": 1,
+   "depends_on": "eval:doc.visit_result=='Not interested'",
+   "mandatory_depends_on": "eval:doc.visit_result=='Not interested'"
+  },
+  {
+   "fieldname": "result_remarks",
+   "fieldtype": "Small Text",
+   "label": "Result Remarks",
+   "allow_on_submit": 1
+  },
+  {
+   "fieldtype": "Data",
+   "label": "Time Period",
+   "fieldname": "visit_time",
+   "allow_on_submit": 1
+  },
+  {
+   "fieldtype": "Data",
+   "label": "Designation of Person",
+   "fieldname": "designation",
+   "allow_on_submit": 1
+  },
+  {
+   "fieldtype": "Data",
+   "label": "Contact No",
+   "fieldname": "contact_no",
+   "allow_on_submit": 1
+  },
+  {
+   "fieldtype": "Data",
+   "label": "Destination",
+   "fieldname": "destination",
+   "allow_on_submit": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-11-11 15:50:00.000000",
+ "modified_by": "Administrator",
+ "module": "Supreme Utility",
+ "name": "PJP Visit",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "istable": 1,
+ "editable_grid": 1
+}

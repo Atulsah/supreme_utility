@@ -1,0 +1,18 @@
+{
+ "doctype": "DocType",
+ "name": "AI Assistant Settings",
+ "module": "Supreme Utility",
+ "issingle": 1,
+ "engine": "InnoDB",
+ "owner": "Administrator",
+ "modified_by": "Administrator",
+ "modified": "2026-11-10 00:00:00",
+ "field_order": ["section_providers", "providers"],
+ "fields": [
+  {"fieldname": "section_providers", "fieldtype": "Section Break", "label": "AI Providers"},
+  {"fieldname": "providers", "fieldtype": "Table", "label": "Providers", "options": "AI Provider Credential"}
+ ],
+ "permissions": [
+  {"role": "System Manager", "read": 1, "write": 1, "create": 1}
+ ]
+}

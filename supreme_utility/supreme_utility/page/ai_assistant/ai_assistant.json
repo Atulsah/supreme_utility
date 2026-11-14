@@ -1,0 +1,17 @@
+{
+ "doctype": "Page",
+ "name": "ai-assistant",
+ "page_name": "ai-assistant",
+ "title": "AI Assistant",
+ "module": "Supreme Utility",
+ "standard": "Yes",
+ "icon": "chat",
+ "owner": "Administrator",
+ "modified_by": "Administrator",
+ "modified": "2026-11-10 00:00:00",
+ "roles": [
+  {"role": "Sales User"},
+  {"role": "Accounts User"},
+  {"role": "System Manager"}
+ ]
+}

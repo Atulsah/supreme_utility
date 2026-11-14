@@ -1,0 +1,427 @@
+{
+ "actions": [],
+ "creation": "2026-11-03 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "claim_mode",
+  "plan_type",
+  "salesperson",
+  "employee",
+  "column_break_1",
+  "status",
+  "company",
+  "from_date",
+  "to_date",
+  "section_plan",
+  "territory",
+  "campaign",
+  "column_break_2",
+  "remarks",
+  "section_actual",
+  "actual_start",
+  "column_break_3",
+  "actual_end",
+  "column_break_7",
+  "travel_mode",
+  "section_visits",
+  "visits",
+  "section_estimate",
+  "estimate_costs",
+  "section_actual_costs",
+  "actual_costs",
+  "section_totals",
+  "total_estimated_cost",
+  "total_expected_business",
+  "column_break_4",
+  "total_actual_cost",
+  "total_order_value",
+  "total_unplanned_business",
+  "column_break_5",
+  "cost_variance",
+  "roi_percent",
+  "section_claim",
+  "employee_advance",
+  "column_break_6",
+  "expense_claim",
+  "section_settlement",
+  "settlement_html",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "PJP-.YYYY.-.#####",
+   "default": "PJP-.YYYY.-.#####",
+   "reqd": 1,
+   "set_only_once": 1,
+   "no_copy": 1,
+   "print_hide": 1
+  },
+  {
+   "fieldname": "claim_mode",
+   "fieldtype": "Select",
+   "label": "Claim Mode",
+   "options": "PJP Plan\nAd-Hoc Visit",
+   "default": "PJP Plan",
+   "reqd": 1,
+   "set_only_once": 1,
+   "no_copy": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "PJP Plan: Plan first, Take Advance, Claim later.<br>Ad-Hoc Visit : Trip is already done, enter visits and expenses for approval."
+  },
+  {
+   "fieldname": "plan_type",
+   "fieldtype": "Select",
+   "label": "Plan Type",
+   "options": "Tour\nEvent",
+   "default": "Tour",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "salesperson",
+   "fieldtype": "Link",
+   "label": "Salesperson",
+   "options": "Sales Person",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "label": "Employee",
+   "options": "Employee",
+   "fetch_from": "salesperson.employee",
+   "reqd": 1,
+   "allow_on_submit": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Draft\nPlanned\nVisited\nClosed\nCancelled",
+   "default": "Draft",
+   "read_only": 1,
+   "allow_on_submit": 1,
+   "no_copy": 1,
+   "bold": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1,
+   "remember_last_selected_value": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "from_date",
+   "fieldtype": "Date",
+   "label": "From Date",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "to_date",
+   "fieldtype": "Date",
+   "label": "To Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_plan",
+   "fieldtype": "Section Break",
+   "label": "Plan Details"
+  },
+  {
+   "fieldname": "territory",
+   "fieldtype": "Link",
+   "label": "Territory",
+   "options": "Territory",
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "campaign",
+   "fieldtype": "Link",
+   "label": "Campaign",
+   "options": "Campaign"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Text Editor",
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "section_actual",
+   "fieldtype": "Section Break",
+   "label": "Actual Trip Details",
+   "depends_on": "eval:doc.docstatus==1 && doc.claim_mode!='Ad-Hoc Visit'"
+  },
+  {
+   "fieldname": "actual_start",
+   "fieldtype": "Datetime",
+   "label": "Actual Start",
+   "mandatory_depends_on": "eval:doc.docstatus==1 && doc.claim_mode!='Ad-Hoc Visit'",
+   "allow_on_submit": 1
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "actual_end",
+   "fieldtype": "Datetime",
+   "label": "Actual End",
+   "mandatory_depends_on": "eval:doc.docstatus==1 && doc.claim_mode!='Ad-Hoc Visit'",
+   "allow_on_submit": 1
+  },
+  {
+   "fieldname": "column_break_7",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "travel_mode",
+   "fieldtype": "Data",
+   "label": "Travel Mode",
+   "mandatory_depends_on": "eval:doc.docstatus==1 && doc.claim_mode!='Ad-Hoc Visit'",
+   "allow_on_submit": 1
+  },
+  {
+   "fieldname": "section_visits",
+   "fieldtype": "Section Break",
+   "label": "Visits"
+  },
+  {
+   "fieldname": "visits",
+   "fieldtype": "Table",
+   "label": "Visits",
+   "options": "PJP Visit",
+   "allow_on_submit": 1,
+   "allow_bulk_edit": 1
+  },
+  {
+   "fieldname": "section_estimate",
+   "fieldtype": "Section Break",
+   "label": "Estimated Cost",
+   "depends_on": "eval:doc.claim_mode!='Ad-Hoc Visit'"
+  },
+  {
+   "fieldname": "estimate_costs",
+   "fieldtype": "Table",
+   "label": "Estimated Costs",
+   "options": "PJP Estimate Cost",
+   "allow_bulk_edit": 1
+  },
+  {
+   "fieldname": "section_actual_costs",
+   "fieldtype": "Section Break",
+   "label": "Actual Costs",
+   "depends_on": "eval:doc.docstatus==1 || doc.claim_mode=='Ad-Hoc Visit'"
+  },
+  {
+   "fieldname": "actual_costs",
+   "fieldtype": "Table",
+   "label": "Actual Costs",
+   "options": "PJP Actual Cost",
+   "allow_on_submit": 1,
+   "allow_bulk_edit": 1
+  },
+  {
+   "fieldname": "section_totals",
+   "fieldtype": "Section Break",
+   "label": "Totals and Return"
+  },
+  {
+   "fieldname": "total_estimated_cost",
+   "fieldtype": "Currency",
+   "label": "Total Estimated Cost",
+   "read_only": 1,
+   "allow_on_submit": 1,
+   "depends_on": "eval:doc.claim_mode!='Ad-Hoc Visit'"
+  },
+  {
+   "fieldname": "total_expected_business",
+   "fieldtype": "Currency",
+   "label": "Total Expected Business",
+   "read_only": 1,
+   "allow_on_submit": 1,
+   "depends_on": "eval:doc.claim_mode!='Ad-Hoc Visit'"
+  },
+  {
+   "fieldname": "column_break_4",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "total_actual_cost",
+   "fieldtype": "Currency",
+   "label": "Total Actual Cost",
+   "read_only": 1,
+   "allow_on_submit": 1
+  },
+  {
+   "fieldname": "total_order_value",
+   "fieldtype": "Currency",
+   "label": "Total Order Value",
+   "read_only": 1,
+   "allow_on_submit": 1
+  },
+  {
+   "fieldname": "total_unplanned_business",
+   "fieldtype": "Currency",
+   "label": "Unplanned Order Value",
+   "read_only": 1,
+   "allow_on_submit": 1,
+   "description": "Business from visits that were not part of the plan"
+  },
+  {
+   "fieldname": "column_break_5",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "cost_variance",
+   "fieldtype": "Currency",
+   "label": "Cost Variance",
+   "read_only": 1,
+   "allow_on_submit": 1,
+   "depends_on": "eval:doc.claim_mode!='Ad-Hoc Visit'"
+  },
+  {
+   "fieldname": "roi_percent",
+   "fieldtype": "Float",
+   "label": "ROI %",
+   "precision": "2",
+   "read_only": 1,
+   "allow_on_submit": 1
+  },
+  {
+   "fieldname": "section_claim",
+   "fieldtype": "Section Break",
+   "label": "Advance and Expense Claim",
+   "depends_on": "eval:doc.docstatus==1 || doc.claim_mode=='Ad-Hoc Visit'"
+  },
+  {
+   "fieldname": "employee_advance",
+   "fieldtype": "Link",
+   "label": "Employee Advance",
+   "options": "Employee Advance",
+   "allow_on_submit": 1,
+   "no_copy": 1,
+   "read_only_depends_on": "eval:doc.claim_mode!='Ad-Hoc Visit' || doc.docstatus==1",
+   "description": "Ad-Hoc Visit: select an existing submitted and paid advance (optional)."
+  },
+  {
+   "fieldname": "column_break_6",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "expense_claim",
+   "fieldtype": "Link",
+   "label": "Expense Claim",
+   "options": "Expense Claim",
+   "read_only": 1,
+   "allow_on_submit": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "section_settlement",
+   "fieldtype": "Section Break",
+   "label": "Payment and Return Status",
+   "depends_on": "eval:doc.employee_advance || doc.expense_claim"
+  },
+  {
+   "fieldname": "settlement_html",
+   "fieldtype": "HTML",
+   "label": "Payment and Return Status"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "options": "PJP Plan",
+   "read_only": 1,
+   "no_copy": 1,
+   "print_hide": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-11-11 17:30:00.000000",
+ "modified_by": "Administrator",
+ "module": "Supreme Utility",
+ "name": "PJP Plan",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "submit": 1,
+   "cancel": 1,
+   "amend": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "Sales Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "submit": 1,
+   "cancel": 1,
+   "amend": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "Sales User",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "report": 1,
+   "print": 1,
+   "email": 1
+  },
+  {
+   "role": "Accounts User",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "document_type": "Document",
+ "is_submittable": 1,
+ "autoname": "naming_series:",
+ "naming_rule": "By \"Naming Series\" field",
+ "search_fields": "salesperson,plan_type,status,from_date"
+}
