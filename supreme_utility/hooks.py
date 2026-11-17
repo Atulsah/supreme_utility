@@ -9,6 +9,9 @@ required_apps = ["erpnext", "hrms"]
 
 PJP = "supreme_utility.supreme_utility.doctype.pjp_plan.pjp_plan"
 
+# "Design Catalogue" button on Item
+doctype_js = {"Item": "public/js/item.js"}
+
 # Only the workspace is a fixture. Custom fields and Expense Claim Types are created by install.py
 # (after_install and after_migrate), so a plain `bench migrate` always repairs them.
 fixtures = [

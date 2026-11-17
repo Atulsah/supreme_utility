@@ -1,0 +1,18 @@
+{
+ "doctype": "Page",
+ "name": "design-catalogue",
+ "page_name": "design-catalogue",
+ "title": "Design Catalogue",
+ "module": "Supreme Utility",
+ "standard": "Yes",
+ "system_page": 0,
+ "icon": "image",
+ "roles": [
+  {"role": "Sales User"},
+  {"role": "Sales Manager"},
+  {"role": "Stock User"},
+  {"role": "Stock Manager"},
+  {"role": "Item Manager"},
+  {"role": "System Manager"}
+ ]
+}
