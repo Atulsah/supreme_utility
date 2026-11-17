@@ -3,9 +3,7 @@ Format is provider-neutral; each AI adapter converts it to its own format."""
 import json
 
 import frappe
-from frappe.utils import get_url_to_form
 
-from supreme_utility.ai_assistant.business_tools import BIZ_FUNCS, BIZ_PERM, BIZ_TOOLS
 from supreme_utility.ai_assistant.hr_tools import HR_FUNCS, HR_PERM, HR_TOOLS
 
 TOOLS = [
@@ -126,7 +124,7 @@ def get_last_bill(customer):
 	inv["items"] = frappe.get_all(
 		"Sales Invoice Item",
 		filters={"parent": inv.name},
-		fields=["item_code", "item_name", "qty", "rate", "amount"],
+		fields=["item_name", "qty", "rate", "amount"],
 		order_by="idx",
 	)
 	return inv
@@ -201,7 +199,7 @@ def get_last_sales_orders(customer, count=1):
 	docs = _last_docs(
 		"Sales Order", "transaction_date",
 		["delivery_date", "grand_total", "currency", "per_delivered", "per_billed"],
-		cust, count, "Sales Order Item", ["item_code", "item_name", "qty", "rate", "amount"],
+		cust, count, "Sales Order Item", ["item_name", "qty", "rate", "amount"],
 	)
 	if not docs:
 		return {"error": f"No Sales Order found for {cust}"}
@@ -214,7 +212,7 @@ def get_last_delivery_notes(customer, count=1):
 		return err
 	docs = _last_docs(
 		"Delivery Note", "posting_date", ["grand_total", "currency"],
-		cust, count, "Delivery Note Item", ["item_code", "item_name", "qty", "rate", "amount"],
+		cust, count, "Delivery Note Item", ["item_name", "qty", "rate", "amount"],
 	)
 	if not docs:
 		return {"error": f"No Delivery Note found for {cust}"}
@@ -275,42 +273,6 @@ _PERM = {
 _PERM.update(HR_PERM)
 _FUNCS.update(HR_FUNCS)
 TOOLS.extend(HR_TOOLS)
-_PERM.update(BIZ_PERM)
-_FUNCS.update(BIZ_FUNCS)
-TOOLS.extend(BIZ_TOOLS)
-
-
-# ---- Clickable links: every document / item / customer in a result gets a *_link field ----
-LINK_KEYS = {
-	"item_code": "Item", "customer": "Customer", "supplier": "Supplier",
-	"sales_order": "Sales Order", "purchase_order": "Purchase Order", "invoice": "Sales Invoice",
-	"warehouse": "Warehouse", "employee_id": "Employee",
-}
-# what a dict's own "name" means, per tool
-NAME_DOCTYPE = {
-	"get_last_bill": "Sales Invoice", "get_customer_outstanding": "Sales Invoice",
-	"get_overdue_invoices": "Sales Invoice", "get_last_sales_orders": "Sales Order",
-	"get_pending_sales_orders": "Sales Order", "get_last_delivery_notes": "Delivery Note",
-	"get_last_payments": "Payment Entry", "get_pending_purchase_orders": "Purchase Order",
-	"get_last_purchase_invoices": "Purchase Invoice", "get_supplier_outstanding": "Purchase Invoice",
-	"get_receivables_summary": "Customer", "get_payables_summary": "Supplier",
-	"get_employee_info": "Employee", "get_leave_applications": "Leave Application",
-	"get_last_salary_slips": "Salary Slip", "get_expense_claims": "Expense Claim",
-}
-
-
-def _add_links(obj, name_doctype=None):
-	if isinstance(obj, list):
-		for x in obj:
-			_add_links(x, name_doctype)
-	elif isinstance(obj, dict):
-		for k, v in list(obj.items()):
-			if isinstance(v, (dict, list)):
-				_add_links(v, name_doctype)
-			elif k in LINK_KEYS and isinstance(v, str) and v:
-				obj[k + "_link"] = get_url_to_form(LINK_KEYS[k], v)
-		if name_doctype and isinstance(obj.get("name"), str) and "link" not in obj:
-			obj["link"] = get_url_to_form(name_doctype, obj["name"])
 
 
 def run_tool(name, args):
@@ -320,7 +282,6 @@ def run_tool(name, args):
 			return {"error": "The HRMS app is not installed on this site"}
 		frappe.has_permission(_PERM.get(name, "Sales Invoice"), "read", throw=True)
 		out = _FUNCS[name](**(args or {}))
-		_add_links(out, NAME_DOCTYPE.get(name))
 	except frappe.PermissionError:
 		out = {"error": "You do not have permission to access this data"}
 	except Exception as e:

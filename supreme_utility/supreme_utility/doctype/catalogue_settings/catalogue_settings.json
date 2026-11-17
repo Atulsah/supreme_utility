@@ -6,40 +6,123 @@
  "engine": "InnoDB",
  "owner": "Administrator",
  "modified_by": "Administrator",
- "modified": "2026-11-15 00:00:00",
+ "modified": "2026-11-17 01:00:00",
  "field_order": [
-  "section_logos", "company_logo", "column_break_logo", "logo_help",
-  "section_attributes", "design_attribute", "show_other_attributes", "column_break_attr", "quality_from", "quality_attribute",
-  "section_text", "catalogue_title", "subtitle", "column_break_text", "footer_text",
-  "section_look", "primary_color", "column_break_look", "secondary_color",
-  "section_job", "background_after"
+  "section_logos",
+  "company_logo",
+  "brand_logos",
+  "section_text",
+  "catalogue_title",
+  "subtitle",
+  "column_break_text",
+  "footer_text",
+  "section_look",
+  "primary_color",
+  "column_break_look",
+  "secondary_color",
+  "section_job",
+  "background_after"
  ],
  "fields": [
-  {"fieldname": "section_logos", "fieldtype": "Section Break", "label": "Logos"},
-  {"fieldname": "company_logo", "fieldtype": "Attach Image", "label": "Company Logo", "description": "Shown on every page (top left). If empty: the default Company's logo, else the Supreme logo of this app."},
-  {"fieldname": "column_break_logo", "fieldtype": "Column Break"},
-  {"fieldname": "logo_help", "fieldtype": "HTML", "label": "Brand Logos", "options": "<p class=\"text-muted small\">The brand logo (top right) is the <b>Image</b> of the item's <b>Brand</b> (SuperFloor, SuperGeo, SuperFelt...). Upload it in the Brand master.</p>"},
-  {"fieldname": "section_attributes", "fieldtype": "Section Break", "label": "Quality and Design No"},
-  {"fieldname": "design_attribute", "fieldtype": "Link", "label": "Design Attribute", "options": "Item Attribute", "description": "Item Attribute that holds the Design No / Model No. If empty, the first attribute with 'Design' or 'Model' in its name is used."},
-  {"fieldname": "show_other_attributes", "fieldtype": "Check", "label": "Show Other Attributes with Design No", "default": "1", "description": "e.g. 149 (Red) when the variant also has a Colour attribute."},
-  {"fieldname": "column_break_attr", "fieldtype": "Column Break"},
-  {"fieldname": "quality_from", "fieldtype": "Select", "label": "Quality From", "options": "Template Item\nItem Attribute", "default": "Template Item", "description": "Template Item: the Quality is the template's Item Name (Tarang, Rangoli, Rainbow...)."},
-  {"fieldname": "quality_attribute", "fieldtype": "Link", "label": "Quality Attribute", "options": "Item Attribute", "depends_on": "eval:doc.quality_from=='Item Attribute'", "mandatory_depends_on": "eval:doc.quality_from=='Item Attribute'"},
-  {"fieldname": "section_text", "fieldtype": "Section Break", "label": "Text"},
-  {"fieldname": "catalogue_title", "fieldtype": "Data", "label": "Default Title", "default": "Design Catalogue"},
-  {"fieldname": "subtitle", "fieldtype": "Data", "label": "Cover Subtitle", "default": "Printed Floor Carpets"},
-  {"fieldname": "column_break_text", "fieldtype": "Column Break"},
-  {"fieldname": "footer_text", "fieldtype": "Small Text", "label": "Footer Text", "description": "Small line at the bottom of every page, e.g. address and phone."},
-  {"fieldname": "section_look", "fieldtype": "Section Break", "label": "Colours", "collapsible": 1},
-  {"fieldname": "primary_color", "fieldtype": "Color", "label": "Primary Colour", "default": "#E3171B", "description": "Design No and left half of the stripes."},
-  {"fieldname": "column_break_look", "fieldtype": "Column Break"},
-  {"fieldname": "secondary_color", "fieldtype": "Color", "label": "Secondary Colour", "default": "#0038AB"},
-  {"fieldname": "section_job", "fieldtype": "Section Break", "label": "Performance", "collapsible": 1},
-  {"fieldname": "background_after", "fieldtype": "Int", "label": "Make in Background Above (Designs)", "default": "40", "non_negative": 1, "description": "Bigger catalogues are made in the background; the user gets a notification with the download link."}
+  {
+   "fieldname": "section_logos",
+   "fieldtype": "Section Break",
+   "label": "Logos"
+  },
+  {
+   "fieldname": "company_logo",
+   "fieldtype": "Attach Image",
+   "label": "Company Logo",
+   "description": "Shown on every page (top left). If empty: the default Company's logo, else the Supreme logo of this app."
+  },
+  {
+   "fieldname": "brand_logos",
+   "fieldtype": "Table",
+   "label": "Brand Logos",
+   "options": "Catalogue Brand Logo",
+   "description": "Logo of each brand (SuperFloor, SuperGeo, SuperFelt...), shown top right on the pages of that brand's designs."
+  },
+  {
+   "fieldname": "section_text",
+   "fieldtype": "Section Break",
+   "label": "Text"
+  },
+  {
+   "fieldname": "catalogue_title",
+   "fieldtype": "Data",
+   "label": "Default Title",
+   "default": "Design Catalogue"
+  },
+  {
+   "fieldname": "subtitle",
+   "fieldtype": "Data",
+   "label": "Cover Subtitle",
+   "default": "Printed Floor Carpets"
+  },
+  {
+   "fieldname": "column_break_text",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "footer_text",
+   "fieldtype": "Small Text",
+   "label": "Footer Text",
+   "description": "Small line at the bottom of every page, e.g. address and phone."
+  },
+  {
+   "fieldname": "section_look",
+   "fieldtype": "Section Break",
+   "label": "Colours",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "primary_color",
+   "fieldtype": "Color",
+   "label": "Primary Colour",
+   "default": "#E3171B",
+   "description": "Design No and left half of the stripes."
+  },
+  {
+   "fieldname": "column_break_look",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "secondary_color",
+   "fieldtype": "Color",
+   "label": "Secondary Colour",
+   "default": "#0038AB"
+  },
+  {
+   "fieldname": "section_job",
+   "fieldtype": "Section Break",
+   "label": "Performance",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "background_after",
+   "fieldtype": "Int",
+   "label": "Make in Background Above (Designs)",
+   "default": "40",
+   "non_negative": 1,
+   "description": "Bigger catalogues are made in the background; the user gets a notification with the download link."
+  }
  ],
  "permissions": [
-  {"role": "System Manager", "read": 1, "write": 1, "create": 1},
-  {"role": "Item Manager", "read": 1, "write": 1, "create": 1},
-  {"role": "Sales Manager", "read": 1}
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1
+  },
+  {
+   "role": "Item Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1
+  },
+  {
+   "role": "Sales Manager",
+   "read": 1
+  }
  ]
 }

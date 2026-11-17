@@ -1,0 +1,23 @@
+{
+ "doctype": "DocType",
+ "name": "Sales Calendar Settings",
+ "module": "Supreme Utility",
+ "issingle": 1,
+ "engine": "InnoDB",
+ "owner": "Administrator",
+ "modified_by": "Administrator",
+ "modified": "2026-11-17 00:00:00",
+ "field_order": ["section_hours", "work_start", "column_hours", "work_end", "hours_help"],
+ "fields": [
+  {"fieldname": "section_hours", "fieldtype": "Section Break", "label": "Working Hours (Sales Calendar hour view)"},
+  {"fieldname": "work_start", "fieldtype": "Int", "label": "Work Start Hour", "default": "10", "reqd": 1, "description": "24-hour clock. 10 = 10:00 AM"},
+  {"fieldname": "column_hours", "fieldtype": "Column Break"},
+  {"fieldname": "work_end", "fieldtype": "Int", "label": "Work End Hour", "default": "19", "reqd": 1, "description": "24-hour clock. 19 = 7:00 PM"},
+  {"fieldname": "hours_help", "fieldtype": "HTML", "options": "<p class='text-muted'>Each hour between start and end becomes one slot in the Sales Calendar day box (3 to 12 hours). 10 to 19 = 9 slots.</p>"}
+ ],
+ "permissions": [
+  {"role": "System Manager", "read": 1, "write": 1, "create": 1},
+  {"role": "Sales Manager", "read": 1, "write": 1},
+  {"role": "HR Manager", "read": 1, "write": 1}
+ ]
+}

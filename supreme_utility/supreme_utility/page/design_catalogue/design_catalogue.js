@@ -1,5 +1,5 @@
-// Design Catalogue: pick item variants (Quality + Design No) and get a PDF catalogue,
-// one design per page with the company logo and the item's brand logo.
+// Design Catalogue: pick designs from the Catalogue Design master and get a PDF catalogue,
+// one design per page with the company logo and the design's brand logo.
 (function () {
 
 const DC_API = "supreme_utility.catalogue";
@@ -26,7 +26,7 @@ class DesignCatalogue {
 		this.page = page;
 		this.wrapper = wrapper;
 		this.rows = [];
-		this.selected = new Map(); // item_code -> row (kept across filter changes)
+		this.selected = new Map(); // Catalogue Design name -> row (kept across filter changes)
 		this.only_selected = false;
 		this.make_controls();
 		this.make_body();
@@ -62,7 +62,7 @@ class DesignCatalogue {
 		});
 		this.search_field = p.add_field({
 			fieldname: "search",
-			label: __("Design No / Item"),
+			label: __("Design No"),
 			fieldtype: "Data",
 			change: () => this.refresh(),
 		});
@@ -77,6 +77,7 @@ class DesignCatalogue {
 		p.set_primary_action(__("Make PDF"), () => this.make_pdf(), "file");
 		p.add_inner_button(__("Select All Shown"), () => this.select_all(true));
 		p.add_inner_button(__("Clear Selection"), () => this.clear_selection());
+		p.add_inner_button(__("Add / Edit Designs"), () => frappe.set_route("List", "Catalogue Design"));
 		p.add_menu_item(__("Catalogue Settings"), () => frappe.set_route("Form", "Catalogue Settings"));
 	}
 
@@ -97,7 +98,7 @@ class DesignCatalogue {
 
 		this.$grid.on("click", ".dc-card", (e) => {
 			const code = $(e.currentTarget).attr("data-code");
-			const row = this.rows.find((r) => r.item_code === code) || this.selected.get(code);
+			const row = this.rows.find((r) => r.name === code) || this.selected.get(code);
 			if (!row) return;
 			if (this.selected.has(code)) this.selected.delete(code);
 			else this.selected.set(code, row);
@@ -106,7 +107,7 @@ class DesignCatalogue {
 		});
 		this.$grid.on("click", ".dc-open", (e) => {
 			e.stopPropagation();
-			frappe.set_route("Form", "Item", $(e.currentTarget).closest(".dc-card").attr("data-code"));
+			frappe.set_route("Form", "Catalogue Design", $(e.currentTarget).closest(".dc-card").attr("data-code"));
 		});
 		this.$toggle.on("click", () => {
 			this.only_selected = !this.only_selected;
@@ -147,10 +148,20 @@ class DesignCatalogue {
 		const key = JSON.stringify(args);
 		this._last = key;
 		this.$grid.html(`<div class="text-muted dc-empty">${__("Loading...")}</div>`);
-		frappe.call(`${DC_API}.get_items`, args).then((r) => {
-			if (this._last !== key) return; // a newer filter is already loading
-			this.rows = r.message || [];
-			this.render();
+		frappe.call({
+			method: `${DC_API}.get_items`,
+			args,
+			callback: (r) => {
+				if (this._last !== key) return; // a newer filter is already loading
+				this.rows = r.message || [];
+				this.render();
+			},
+			error: () => {
+				if (this._last !== key) return;
+				this.$grid.html(
+					`<div class="text-danger dc-empty">${__("Could not load the designs. Please check the error message, or Error Log.")}</div>`
+				);
+			},
 		});
 	}
 
@@ -159,7 +170,7 @@ class DesignCatalogue {
 		if (!rows.length) {
 			this.$grid.html(
 				`<div class="text-muted dc-empty">${
-					this.only_selected ? __("Nothing selected yet.") : __("No item variants found for these filters.")
+					this.only_selected ? __("Nothing selected yet.") : __("No designs found. Add them in Catalogue Design.")
 				}</div>`
 			);
 		} else {
@@ -171,20 +182,29 @@ class DesignCatalogue {
 					html.push(`<div class="dc-group">${frappe.utils.escape_html(r.quality || __("No Quality"))}</div>`);
 				}
 				const img = r.image
-					? `<img loading="lazy" src="${encodeURI(r.image)}" alt="">`
+					? `<img loading="lazy" referrerpolicy="no-referrer" src="${frappe.utils.escape_html(this.thumb_url(r))}" alt=""
+						onerror="this.outerHTML='<div class=&quot;dc-noimg&quot;>${__("Image not found")}</div>'">`
 					: `<div class="dc-noimg">${__("No Image")}</div>`;
 				html.push(`
-					<div class="dc-card ${this.selected.has(r.item_code) ? "selected" : ""}" data-code="${frappe.utils.escape_html(r.item_code)}" title="${frappe.utils.escape_html(r.item_code + " - " + (r.item_name || ""))}">
+					<div class="dc-card ${this.selected.has(r.name) ? "selected" : ""}" data-code="${frappe.utils.escape_html(r.name)}" title="${frappe.utils.escape_html(r.name)}">
 						<div class="dc-thumb">${img}<span class="dc-check">✓</span></div>
 						<div class="dc-label">${frappe.utils.escape_html(r.label)}</div>
-						<div class="dc-sub text-muted">${frappe.utils.escape_html([r.brand, r.item_code].filter(Boolean).join(" · "))}
-							<a class="dc-open" title="${__("Open Item")}">↗</a></div>
+						<div class="dc-sub text-muted">${frappe.utils.escape_html(r.brand || "")}
+							<a class="dc-open" title="${__("Open Design")}">↗</a></div>
 					</div>`);
 			});
 			this.$grid.html(html.join(""));
 		}
 		this.$count.text(this.only_selected ? "" : __("{0} designs shown", [this.rows.length]));
 		this.update_bar();
+	}
+
+	thumb_url(r) {
+		// Files on this site load directly; any outside link (postimg, Google Drive, Dropbox, a web page...)
+		// goes through the server, which finds the picture and makes a small thumbnail.
+		const url = r.image || "";
+		if (url.startsWith("/") && !url.startsWith("//")) return url;
+		return `/api/method/${DC_API}.design_thumb?name=${encodeURIComponent(r.name)}&v=${encodeURIComponent(url.length + url.slice(-12))}`;
 	}
 
 	update_bar() {
@@ -196,7 +216,7 @@ class DesignCatalogue {
 
 	select_all(on) {
 		const rows = this.only_selected ? Array.from(this.selected.values()) : this.rows;
-		rows.forEach((r) => (on ? this.selected.set(r.item_code, r) : this.selected.delete(r.item_code)));
+		rows.forEach((r) => (on ? this.selected.set(r.name, r) : this.selected.delete(r.name)));
 		this.render();
 	}
 
@@ -241,7 +261,7 @@ class DesignCatalogue {
 				frappe.call({
 					method: `${DC_API}.generate_catalogue`,
 					args: {
-						item_codes: items.map((r) => r.item_code),
+						designs: items.map((r) => r.name),
 						title: v.title,
 						include_index: v.include_index ? 1 : 0,
 					},
@@ -269,9 +289,15 @@ class DesignCatalogue {
 			frappe.msgprint({ title: __("Design Catalogue"), message: m.error, indicator: "red" });
 			return;
 		}
-		const missing = (m.missing_images || []).length
+		let missing = (m.missing_images || []).length
 			? `<p class="text-warning">${__("No image for: {0}", [frappe.utils.escape_html(m.missing_images.join(", "))])}</p>`
 			: "";
+		if ((m.missing_brand_logos || []).length) {
+			missing += `<p class="text-warning">${__(
+				"No logo found for brand: {0}. Add it in Catalogue Settings > Brand Logos.",
+				[frappe.utils.escape_html(m.missing_brand_logos.join(", "))]
+			)}</p>`;
+		}
 		frappe.msgprint({
 			title: __("Catalogue Ready"),
 			indicator: "green",

@@ -70,19 +70,7 @@ frappe.pages["ai-assistant"].on_page_load = function (wrapper) {
 
   const add = (who, text) => {
     const $m = $("<div>").css({ margin: "8px 0", whiteSpace: "pre-wrap" });
-    $m.append($("<b>").text(who + ": "));
-    // Turn URLs in the answer into clickable "open" links (text is added safely, never as HTML)
-    text.split(/(https?:\/\/[^\s<>"']+)/g).forEach((part, i) => {
-      if (i % 2 === 0) return $m.append(document.createTextNode(part));
-      const m = part.match(/^(.*?)([.,;:!?)\]]*)$/);
-      let href = m[1];
-      try {
-        const u = new URL(m[1]);
-        href = window.location.origin + u.pathname + u.search + u.hash; // always open on the current site
-      } catch (e) {}
-      $m.append($("<a>").attr({ href, target: "_blank", rel: "noopener" }).text("open ↗"));
-      $m.append(document.createTextNode(m[2]));
-    });
+    $m.append($("<b>").text(who + ": ")).append(document.createTextNode(text));
     $log.append($m);
     $log.scrollTop($log[0].scrollHeight);
   };

@@ -8,6 +8,15 @@ from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
 COST_HEADS = ["Travel", "Food", "Stay", "Parking/Toll", "Gifts", "Other"]
 
+# Timesheet Activity Types used by the Sales Calendar hour view
+ACTIVITY_TYPES = [
+	"Sales Call / Follow-up",
+	"Customer Visit",
+	"Documentation",
+	"Report / Analysis",
+	"Other Work",
+]
+
 PJP_LINK_FIELD = {
 	"fieldname": "pjp_plan",
 	"fieldtype": "Link",
@@ -37,6 +46,7 @@ def after_migrate():
 def setup():
 	create_custom_fields(CUSTOM_FIELDS, ignore_validate=True)
 	create_expense_claim_types()
+	create_activity_types()
 	frappe.db.commit()
 
 
@@ -53,3 +63,12 @@ def create_expense_claim_types():
 					"description": f"PJP cost head: {head}",
 				}
 			).insert(ignore_permissions=True)
+
+
+def create_activity_types():
+	"""Timesheet Activity Types for the Sales Calendar (colours are decided by the type name)."""
+	if not frappe.db.exists("DocType", "Activity Type"):
+		return
+	for name in ACTIVITY_TYPES:
+		if not frappe.db.exists("Activity Type", name):
+			frappe.get_doc({"doctype": "Activity Type", "activity_type": name}).insert(ignore_permissions=True)

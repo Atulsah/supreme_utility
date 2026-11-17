@@ -1,0 +1,17 @@
+{
+ "doctype": "DocType",
+ "name": "Catalogue Brand Logo",
+ "module": "Supreme Utility",
+ "istable": 1,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "owner": "Administrator",
+ "modified_by": "Administrator",
+ "modified": "2026-11-17 00:00:00",
+ "field_order": ["brand", "logo"],
+ "fields": [
+  {"fieldname": "brand", "fieldtype": "Link", "label": "Brand", "options": "Brand", "reqd": 1, "in_list_view": 1, "columns": 4},
+  {"fieldname": "logo", "fieldtype": "Attach Image", "label": "Logo", "reqd": 1, "in_list_view": 1, "columns": 6}
+ ],
+ "permissions": []
+}

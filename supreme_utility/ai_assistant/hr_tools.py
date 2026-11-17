@@ -165,14 +165,14 @@ def get_birthdays(month=None):
 	month = int(month or today.month)
 	rows = frappe.get_list(
 		"Employee", filters={"status": "Active", "date_of_birth": ["is", "set"]},
-		fields=["name", "employee_name", "date_of_birth", "department"], limit=5000,
+		fields=["employee_name", "date_of_birth", "department"], limit=5000,
 	)
 	out = []
 	for r in rows:
 		dob = getdate(r.date_of_birth)
 		if dob.month == month:
 			out.append({
-				"employee": r.employee_name, "employee_id": r.name, "department": r.department,
+				"employee": r.employee_name, "department": r.department,
 				"birthday": f"{dob.day:02d}-{dob.month:02d}",
 				"is_today": dob.month == today.month and dob.day == today.day,
 			})
@@ -202,7 +202,7 @@ def get_attendance_summary(employee, from_date, to_date):
 	for r in rows:
 		counts[r.status] = counts.get(r.status, 0) + 1
 	return {
-		"employee": emp.employee_name, "employee_id": emp.name, "from": from_date, "to": to_date,
+		"employee": emp.employee_name, "from": from_date, "to": to_date,
 		"days_marked": len(rows), "by_status": counts,
 	}
 
@@ -211,13 +211,13 @@ def get_attendance_on_date(date=None):
 	date = date or nowdate()
 	rows = frappe.get_list(
 		"Attendance", filters={"attendance_date": date, "docstatus": 1},
-		fields=["employee", "employee_name", "status"], limit=2000,
+		fields=["employee_name", "status"], limit=2000,
 	)
 	counts, absent = {}, []
 	for r in rows:
 		counts[r.status] = counts.get(r.status, 0) + 1
 		if r.status == "Absent":
-			absent.append({"employee": r.employee_name, "employee_id": r.employee})
+			absent.append(r.employee_name)
 	return {
 		"date": date, "marked": len(rows), "by_status": counts,
 		"absent_employees": absent[:50],
@@ -234,7 +234,7 @@ def get_leave_balance(employee, date=None):
 		from hrms.hr.doctype.leave_application.leave_application import get_leave_details
 
 		d = get_leave_details(emp.name, date)
-		return {"employee": emp.employee_name, "employee_id": emp.name, "as_on": date, "balances": d.get("leave_allocation", {})}
+		return {"employee": emp.employee_name, "as_on": date, "balances": d.get("leave_allocation", {})}
 	except Exception:
 		pass
 	# fallback: allocation - approved leaves
@@ -256,7 +256,7 @@ def get_leave_balance(employee, date=None):
 			"total_leaves": a.total_leaves_allocated, "leaves_taken": used,
 			"remaining_leaves": a.total_leaves_allocated - used,
 		}
-	return {"employee": emp.employee_name, "employee_id": emp.name, "as_on": date, "balances": out}
+	return {"employee": emp.employee_name, "as_on": date, "balances": out}
 
 
 def get_leave_applications(employee=None, status=None, count=10):
@@ -287,7 +287,7 @@ def get_last_salary_slips(employee, count=1):
 	)
 	if not rows:
 		return {"error": f"No salary slip found for {emp.employee_name} (or you lack permission)"}
-	return {"employee": emp.employee_name, "employee_id": emp.name, "salary_slips": rows}
+	return {"employee": emp.employee_name, "salary_slips": rows}
 
 
 def get_expense_claims(employee=None, approval_status=None, count=10):

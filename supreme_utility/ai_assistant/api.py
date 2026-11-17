@@ -45,14 +45,11 @@ def ask(question, provider_id=None):
 		frappe.throw(f"API key is not set for {row.provider}")
 
 	system = (
-		"You are an assistant for ERPNext that answers Sales, Stock, Purchase, Accounts and HR (HRMS) questions. "
+		"You are an assistant for ERPNext that answers Sales and HR (HRMS) questions. "
 		"Use only the provided tools to get data and never guess. "
 		"Share private information such as salary only when a tool returns it. "
 		"Always reply in English with short, clear answers. Show amounts with their currency. "
 		"Do not use Markdown (no **, *, #); write simple plain lines. "
-		"Tool results contain fields ending in _link or named link (full URLs). For every item, customer, supplier, employee, "
-		"invoice, order, delivery or other document you mention, put its link on the same line right after its name. "
-		"Copy links exactly from the tool result and never invent or change a link. "
 		f"Today's date is {nowdate()}; convert phrases like 'this month' or 'last week' into date ranges."
 	)
 	try:

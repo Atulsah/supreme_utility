@@ -1,24 +1,22 @@
 # Copyright (c) 2026, SGPL and contributors
 # For license information, please see license.txt
 
-"""Design Catalogue: pick item variants (Quality + Design No) and get a PDF catalogue.
+"""Design Catalogue: pick designs from the Catalogue Design master and get a PDF catalogue.
 
-Where the data comes from
-  Quality    the variant's template item (Item.variant_of -> item_name), or an Item Attribute
-             (Catalogue Settings > Quality From)
-  Design No  the variant's design attribute (Catalogue Settings > Design Attribute; if empty, the
-             first attribute whose name contains "Design" or "Model")
-  Image      Item.image of the variant
-  Brand      Item.brand of the variant (else of its template); the logo is Brand.image
-  Company    Catalogue Settings > Company Logo, else the default Company's logo, else the app logo
+Catalogue Design (one record per design) holds Design No, Image (upload or link), Brand,
+Quality and Colour. It is not linked to Item.
+  Brand logo  Catalogue Settings > Brand Logos (else Brand.image, else an image attached to the Brand)
+  Company     Catalogue Settings > Company Logo, else the default Company's logo, else the app logo
 
 Small catalogues are made right away; big ones go to a background job and the user gets a
 notification with the download link when it is ready.
 """
 
+import io
 import json
 import os
 import re
+import zipfile
 from urllib.parse import unquote
 
 import frappe
@@ -48,7 +46,7 @@ REALTIME_EVENT = "design_catalogue_ready"
 def check_access():
 	if frappe.session.user == "Administrator":
 		return
-	if not (ALLOWED_ROLES & set(frappe.get_roles())) or not frappe.has_permission("Item", "read"):
+	if not (ALLOWED_ROLES & set(frappe.get_roles())) or not frappe.has_permission("Catalogue Design", "read"):
 		frappe.throw(_("You are not permitted to make design catalogues."), frappe.PermissionError)
 
 
@@ -58,85 +56,79 @@ def get_settings():
 	return frappe._dict()
 
 
-def _design_attribute(settings, attribute_names):
-	if settings.get("design_attribute"):
-		return settings.design_attribute
-	for pattern in ("design", "model"):
-		for name in attribute_names:
-			if pattern in (name or "").lower():
-				return name
-	return None
-
-
-def _quality_from_attribute(settings):
-	return settings.get("quality_from") == "Item Attribute" and settings.get("quality_attribute")
-
-
-def _load_variants(filters_sql="", values=None, item_codes=None):
-	"""Variant rows with quality, design no and label, sorted by quality then design no."""
-	settings = get_settings()
+def _load_designs(conditions=None, values=None, names=None):
+	"""Active Catalogue Design rows with their label, sorted by quality then design no."""
+	conditions = list(conditions or [])
 	values = dict(values or {})
-	conditions = ["v.variant_of is not null", "v.variant_of != ''", "v.disabled = 0"]
-	if item_codes is not None:
-		if not item_codes:
+	conditions.append("disabled = 0")
+	if names is not None:
+		if not names:
 			return []
-		conditions.append("v.name in %(item_codes)s")
-		values["item_codes"] = tuple(item_codes)
-	if filters_sql:
-		conditions.append(filters_sql)
-
+		conditions.append("name in %(names)s")
+		values["names"] = tuple(names)
 	rows = frappe.db.sql(
 		f"""
-		select v.name as item_code, v.item_name, v.image,
-			coalesce(nullif(v.brand, ''), t.brand) as brand,
-			v.variant_of as template, t.item_name as template_name
-		from `tabItem` v
-		left join `tabItem` t on t.name = v.variant_of
+		select name, design_no, image, brand, quality, colour
+		from `tabCatalogue Design`
 		where {" and ".join(conditions)}
 		limit {MAX_LIST}
 		""",
 		values,
 		as_dict=True,
 	)
-	if not rows:
-		return []
-
-	attrs = {}
-	for a in frappe.get_all(
-		"Item Variant Attribute",
-		filters={"parent": ("in", [r.item_code for r in rows]), "parenttype": "Item"},
-		fields=["parent", "attribute", "attribute_value", "idx"],
-		order_by="idx asc",
-	):
-		attrs.setdefault(a.parent, []).append(a)
-
-	all_attr_names = {a.attribute for lst in attrs.values() for a in lst}
-	design_attr = _design_attribute(settings, sorted(all_attr_names))
-	quality_attr = _quality_from_attribute(settings)
-	show_others = cint(settings.get("show_other_attributes", 1)) if settings else 1
-
-	out = []
 	for r in rows:
-		lst = attrs.get(r.item_code, [])
-		by_name = {a.attribute: cstr(a.attribute_value) for a in lst}
-		design_no = by_name.get(design_attr) if design_attr else None
-		quality = by_name.get(quality_attr) if quality_attr else None
-		quality = quality or r.template_name or r.template
-		extras = []
-		if show_others:
-			extras = [
-				cstr(a.attribute_value)
-				for a in lst
-				if a.attribute not in (design_attr, quality_attr) and a.attribute_value
-			]
-		r.quality = quality
-		r.design_no = design_no or r.item_code
-		r.extras = extras
-		r.label = cr.design_label(r.design_no, extras)
-		out.append(r)
+		r.label = cr.design_label(r.design_no, [r.colour])
+	rows.sort(key=lambda r: (cr.natural_key(r.quality), cr.natural_key(r.design_no), cr.natural_key(r.label)))
+	return rows
 
-	out.sort(key=lambda r: (cr.natural_key(r.quality), cr.natural_key(r.design_no), cr.natural_key(r.label)))
-	return out
+
+HTTP_HEADERS = {
+	"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+	"(KHTML, like Gecko) Chrome/130.0 Safari/537.36",
+	"Accept": "image/avif,image/webp,image/png,image/jpeg,image/*,text/html;q=0.8,*/*;q=0.5",
+}
+
+
+def direct_image_url(url):
+	"""Turn share links into direct image links (Google Drive, Dropbox)."""
+	url = cstr(url).strip()
+	m = re.search(r"drive\.google\.com/(?:file/d/|open\?id=|uc\?(?:export=\w+&)?id=)([\w-]+)", url)
+	if m:
+		return f"https://drive.google.com/uc?export=download&id={m.group(1)}"
+	if "dropbox.com" in url:
+		url = re.sub(r"([?&])dl=0", r"\1raw=1", url)
+		if "raw=1" not in url:
+			url += ("&" if "?" in url else "?") + "raw=1"
+	return url
+
+
+def _fetch_remote(url, _depth=0):
+	"""Download an image link. If the link is a web page (postimg.cc, imgbb...), use its og:image."""
+	import requests
+
+	try:
+		resp = requests.get(direct_image_url(url), headers=HTTP_HEADERS, timeout=20, allow_redirects=True)
+	except Exception:
+		return None
+	if not resp.ok or not resp.content:
+		return None
+	if cr.open_image(resp.content):
+		return resp.content
+	ctype = resp.headers.get("Content-Type", "")
+	if _depth == 0 and "html" in ctype:
+		html = resp.text
+		for pattern in (
+			r'<meta[^>]+property=["\']og:image(?::secure_url)?["\'][^>]+content=["\']([^"\']+)',
+			r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image',
+			r'<meta[^>]+name=["\']twitter:image["\'][^>]+content=["\']([^"\']+)',
+			r'<link[^>]+rel=["\']image_src["\'][^>]+href=["\']([^"\']+)',
+		):
+			m = re.search(pattern, html, re.I)
+			if m:
+				from urllib.parse import urljoin
+
+				return _fetch_remote(urljoin(resp.url, m.group(1).replace("&amp;", "&")), _depth=1)
+	return None
 
 
 def _read_file(url):
@@ -148,13 +140,7 @@ def _read_file(url):
 	if url.startswith(site):
 		url = url[len(site) :]
 	if url.startswith(("http://", "https://")):
-		try:
-			import requests
-
-			resp = requests.get(url, timeout=15)
-			return resp.content if resp.ok else None
-		except Exception:
-			return None
+		return _fetch_remote(url)
 
 	url = url.split("?")[0]
 	name = frappe.db.get_value("File", {"file_url": url}, "name")
@@ -201,16 +187,35 @@ def _company_logo(settings):
 	return None
 
 
+def _brand_logo(settings, brand):
+	"""Catalogue Settings > Brand Logos, else Brand.image (if the field exists), else an image
+	attached to the Brand."""
+	urls = [row.logo for row in (settings.get("brand_logos") or []) if row.brand == brand and row.logo]
+	if frappe.db.has_column("Brand", "image"):
+		urls.append(frappe.db.get_value("Brand", brand, "image"))
+	urls += frappe.get_all(
+		"File",
+		filters={"attached_to_doctype": "Brand", "attached_to_name": brand, "is_folder": 0},
+		pluck="file_url",
+		order_by="creation desc",
+	)
+	for url in urls:
+		img = _image(url) if url else None
+		if img:
+			return img
+	return None
+
+
 def _slug(text):
 	text = re.sub(r"[^A-Za-z0-9]+", "-", cstr(text)).strip("-")
 	return text[:60] or "Design-Catalogue"
 
 
-def _parse_codes(item_codes):
-	if isinstance(item_codes, str):
-		item_codes = json.loads(item_codes)
+def _parse_codes(values):
+	if isinstance(values, str):
+		values = json.loads(values)
 	codes = []
-	for c in item_codes or []:
+	for c in values or []:
 		c = cstr(c).strip()
 		if c and c not in codes:
 			codes.append(c)
@@ -224,84 +229,46 @@ def _parse_codes(item_codes):
 def get_filter_options(brand=None):
 	"""Qualities (with design count) for the Quality filter."""
 	check_access()
-	settings = get_settings()
 	values = {}
 	brand_sql = ""
 	if brand:
-		brand_sql = "and coalesce(nullif(v.brand, ''), t.brand) = %(brand)s"
+		brand_sql = "and brand = %(brand)s"
 		values["brand"] = brand
-
-	quality_attr = _quality_from_attribute(settings)
-	if quality_attr:
-		values["qa"] = quality_attr
-		rows = frappe.db.sql(
-			f"""
-			select a.attribute_value as value, a.attribute_value as label, count(*) as designs
-			from `tabItem` v
-			left join `tabItem` t on t.name = v.variant_of
-			join `tabItem Variant Attribute` a on a.parent = v.name and a.parenttype = 'Item' and a.attribute = %(qa)s
-			where v.variant_of is not null and v.variant_of != '' and v.disabled = 0 {brand_sql}
-			group by a.attribute_value
-			""",
-			values,
-			as_dict=True,
-		)
-	else:
-		rows = frappe.db.sql(
-			f"""
-			select v.variant_of as value, max(t.item_name) as label, count(*) as designs
-			from `tabItem` v
-			left join `tabItem` t on t.name = v.variant_of
-			where v.variant_of is not null and v.variant_of != '' and v.disabled = 0 {brand_sql}
-			group by v.variant_of
-			""",
-			values,
-			as_dict=True,
-		)
-	rows.sort(key=lambda r: cr.natural_key(r.label or r.value))
-	return {"qualities": rows, "quality_from": "Item Attribute" if quality_attr else "Template Item"}
+	rows = frappe.db.sql(
+		f"""
+		select ifnull(quality, '') as value, count(*) as designs
+		from `tabCatalogue Design`
+		where disabled = 0 {brand_sql}
+		group by ifnull(quality, '')
+		""",
+		values,
+		as_dict=True,
+	)
+	rows = [r for r in rows if r.value]
+	rows.sort(key=lambda r: cr.natural_key(r.value))
+	return {"qualities": [{"value": r.value, "label": r.value, "designs": r.designs} for r in rows]}
 
 
 @frappe.whitelist()
 def get_items(brand=None, quality=None, txt=None, only_with_image=0):
-	"""Variants for the selection grid."""
+	"""Designs for the selection grid."""
 	check_access()
-	settings = get_settings()
 	conditions, values = [], {}
 	if brand:
-		conditions.append("coalesce(nullif(v.brand, ''), t.brand) = %(brand)s")
+		conditions.append("brand = %(brand)s")
 		values["brand"] = brand
 	if quality:
-		quality_attr = _quality_from_attribute(settings)
-		if quality_attr:
-			conditions.append(
-				"exists (select 1 from `tabItem Variant Attribute` qa where qa.parent = v.name "
-				"and qa.parenttype = 'Item' and qa.attribute = %(qa)s and qa.attribute_value = %(quality)s)"
-			)
-			values["qa"] = quality_attr
-		else:
-			conditions.append("v.variant_of = %(quality)s")
+		conditions.append("quality = %(quality)s")
 		values["quality"] = quality
 	if cint(only_with_image):
-		conditions.append("ifnull(v.image, '') != ''")
-
-	rows = _load_variants(" and ".join(conditions), values)
-
+		conditions.append("ifnull(image, '') != ''")
+	rows = _load_designs(conditions, values)
 	if txt:
 		t = txt.lower().strip()
-		rows = [
-			r
-			for r in rows
-			if t in cstr(r.label).lower()
-			or t in cstr(r.item_code).lower()
-			or t in cstr(r.item_name).lower()
-			or t in cstr(r.quality).lower()
-		]
-
+		rows = [r for r in rows if t in cstr(r.label).lower() or t in cstr(r.quality).lower()]
 	return [
 		{
-			"item_code": r.item_code,
-			"item_name": r.item_name,
+			"name": r.name,
 			"image": r.image,
 			"brand": r.brand,
 			"quality": r.quality,
@@ -313,35 +280,35 @@ def get_items(brand=None, quality=None, txt=None, only_with_image=0):
 
 
 @frappe.whitelist()
-def generate_catalogue(item_codes, title=None, include_index=1):
-	"""Make the PDF now, or in the background for big selections."""
+def generate_catalogue(designs, title=None, include_index=1):
+	"""Make the PDF now, or in the background for big selections. designs = Catalogue Design names."""
 	check_access()
-	codes = _parse_codes(item_codes)
-	if not codes:
+	names = _parse_codes(designs)
+	if not names:
 		frappe.throw(_("Please select at least one design."))
-	if len(codes) > MAX_ITEMS:
+	if len(names) > MAX_ITEMS:
 		frappe.throw(_("Please select at most {0} designs in one catalogue.").format(MAX_ITEMS))
 
 	settings = get_settings()
 	background_after = cint(settings.get("background_after")) or DEFAULT_BACKGROUND_AFTER
-	if len(codes) > background_after:
+	if len(names) > background_after:
 		frappe.enqueue(
 			"supreme_utility.catalogue.build_in_background",
 			queue="long",
 			timeout=3600,
-			item_codes=codes,
+			names=names,
 			title=title,
 			include_index=cint(include_index),
 			user=frappe.session.user,
 		)
-		return {"queued": 1, "count": len(codes)}
+		return {"queued": 1, "count": len(names)}
 
-	return build_catalogue(codes, title=title, include_index=cint(include_index))
+	return build_catalogue(names, title=title, include_index=cint(include_index))
 
 
-def build_in_background(item_codes, title=None, include_index=1, user=None):
+def build_in_background(names, title=None, include_index=1, user=None):
 	try:
-		result = build_catalogue(item_codes, title=title, include_index=include_index)
+		result = build_catalogue(names, title=title, include_index=include_index)
 		frappe.publish_realtime(REALTIME_EVENT, result, user=user)
 		_notify(user, result)
 	except Exception:
@@ -370,21 +337,19 @@ def _notify(user, result):
 		frappe.log_error(title="Design Catalogue notification failed")
 
 
-def build_catalogue(item_codes, title=None, include_index=1):
+def build_catalogue(names, title=None, include_index=1):
 	"""Builds the PDF, saves it as a private File and returns its URL."""
-	from frappe.utils.pdf import get_pdf
-
 	settings = get_settings()
-	rows = _load_variants(item_codes=item_codes)
+	rows = _load_designs(names=names)
 	if not rows:
-		frappe.throw(_("None of the selected items is an active item variant."))
+		frappe.throw(_("None of the selected designs is active."))
 
 	designs = [
 		{
 			"label": r.label,
 			"quality": r.quality,
 			"brand": r.brand,
-			"item_code": r.item_code,
+			"item_code": r.name,
 			"image": _image(r.image),
 		}
 		for r in rows
@@ -393,7 +358,7 @@ def build_catalogue(item_codes, title=None, include_index=1):
 	brand_logos = {}
 	for r in rows:
 		if r.brand and r.brand not in brand_logos:
-			brand_logos[r.brand] = _image(frappe.db.get_value("Brand", r.brand, "image"))
+			brand_logos[r.brand] = _brand_logo(settings, r.brand)
 
 	qualities = []
 	for r in rows:
@@ -401,19 +366,17 @@ def build_catalogue(item_codes, title=None, include_index=1):
 			qualities.append(r.quality)
 	title = cstr(title).strip() or settings.get("catalogue_title") or "Design Catalogue"
 
-	context = cr.build_context(
+	pdf = cr.render_pdf(
 		designs,
 		company_logo=_company_logo(settings),
 		brand_logos=brand_logos,
 		title=title,
 		subtitle=settings.get("subtitle") or "",
-		footer_text=settings.get("footer_text") or "",
+		footer=settings.get("footer_text") or "",
 		primary_color=settings.get("primary_color") or "#E3171B",
 		secondary_color=settings.get("secondary_color") or "#0038AB",
 		include_index=bool(cint(include_index)),
 	)
-	html = cr.render_html(context)
-	pdf = get_pdf(html, options=dict(cr.PDF_OPTIONS))
 
 	name_part = "-".join(qualities[:3]) if qualities else title
 	file_name = f"{_slug(name_part)}-Catalogue-{nowdate()}.pdf"
@@ -434,4 +397,111 @@ def build_catalogue(item_codes, title=None, include_index=1):
 		"file_name": file_doc.file_name,
 		"count": len(designs),
 		"missing_images": [d["label"] for d in designs if not d["image"]],
+		"missing_brand_logos": [b for b, img in brand_logos.items() if not img],
 	}
+
+
+# ---------------------------------------------------------------- ZIP import
+
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"}
+
+
+@frappe.whitelist()
+def import_designs_from_zip(zip_file, brand=None, quality=None, update_existing=0):
+	"""One Catalogue Design per picture in the ZIP; the file name is the Design No."""
+	from supreme_utility.supreme_utility.doctype.catalogue_design.catalogue_design import design_name
+
+	if not frappe.has_permission("Catalogue Design", "create"):
+		frappe.throw(_("You are not permitted to create Catalogue Designs."), frappe.PermissionError)
+	content = _read_file(zip_file)
+	if not content:
+		frappe.throw(_("Could not read the ZIP file."))
+	try:
+		archive = zipfile.ZipFile(io.BytesIO(content))
+	except zipfile.BadZipFile:
+		frappe.throw(_("This is not a ZIP file."))
+
+	quality = cstr(quality).strip() or None
+	result = {"created": 0, "updated": 0, "skipped": 0, "not_images": []}
+	for info in archive.infolist():
+		path = info.filename
+		base = os.path.basename(path)
+		if info.is_dir() or not base or base.startswith(".") or "__MACOSX" in path:
+			continue
+		stem, ext = os.path.splitext(base)
+		if ext.lower() not in IMAGE_EXTENSIONS:
+			result["not_images"].append(base)
+			continue
+		data = archive.read(info)
+		if not cr.open_image(data):
+			result["not_images"].append(base)
+			continue
+		design_no = stem.strip()
+		name = design_name(quality, design_no)
+		exists = frappe.db.exists("Catalogue Design", name)
+		if exists and not cint(update_existing):
+			result["skipped"] += 1
+			continue
+
+		file_doc = frappe.get_doc({"doctype": "File", "file_name": base, "is_private": 0, "content": data})
+		file_doc.insert(ignore_permissions=True)
+		if exists:
+			doc = frappe.get_doc("Catalogue Design", name)
+			doc.image = file_doc.file_url
+			if brand:
+				doc.brand = brand
+			doc.save()
+			result["updated"] += 1
+		else:
+			doc = frappe.get_doc(
+				{
+					"doctype": "Catalogue Design",
+					"design_no": design_no,
+					"quality": quality,
+					"brand": brand or None,
+					"image": file_doc.file_url,
+				}
+			).insert()
+			result["created"] += 1
+		file_doc.db_set(
+			{
+				"attached_to_doctype": "Catalogue Design",
+				"attached_to_name": doc.name,
+				"attached_to_field": "image",
+			}
+		)
+	frappe.db.commit()
+	return result
+
+
+# ---------------------------------------------------------------- thumbnails for the page
+
+
+THUMB_CACHE_SECONDS = 24 * 60 * 60
+
+
+@frappe.whitelist()
+def design_thumb(name, v=None):
+	"""Small JPEG of a Catalogue Design image, whatever kind of link it is (cached for a day)."""
+	check_access()
+	url = frappe.db.get_value("Catalogue Design", name, "image")
+	if not url:
+		raise frappe.DoesNotExistError
+	key = f"catalogue_thumb::{url}"
+	data = frappe.cache().get_value(key)
+	if not data:
+		img = _image(url)
+		if not img:
+			raise frappe.DoesNotExistError
+		img = img.copy()
+		img.thumbnail((480, 480))
+		if img.mode != "RGB":
+			img = img.convert("RGB")
+		buf = io.BytesIO()
+		img.save(buf, "JPEG", quality=80)
+		data = buf.getvalue()
+		frappe.cache().set_value(key, data, expires_in_sec=THUMB_CACHE_SECONDS)
+	frappe.local.response.filename = "thumb.jpg"
+	frappe.local.response.filecontent = data
+	frappe.local.response.type = "download"
+	frappe.local.response.display_content_as = "inline"
