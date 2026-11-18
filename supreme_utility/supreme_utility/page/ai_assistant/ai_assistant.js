@@ -2,8 +2,12 @@ frappe.pages["ai-assistant"].on_page_load = function (wrapper) {
   const page = frappe.ui.make_app_page({
     parent: wrapper,
     title: "AI Assistant",
+    // shown under the title: if you do not see "links v2", the browser is still using the old script
+    // (run bench clear-cache and press Ctrl+Shift+R)
     single_column: true,
   });
+
+  page.set_indicator("links v3", "green");
 
   $(page.body).html(`
     <div style="max-width:720px;margin:auto">
@@ -68,9 +72,36 @@ frappe.pages["ai-assistant"].on_page_load = function (wrapper) {
   setTimeout(() => $input.prop("disabled", false).prop("readonly", false).focus(), 300);
   $sel.on("change", () => localStorage.setItem("su_ai_provider", $sel.val()));
 
-  const add = (who, text) => {
+  const esc = (t) => frappe.utils.escape_html(String(t));
+  const reEsc = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+  // Turns document IDs / names returned by the tools, and /app/... URLs, into links
+  const linkify = (text, links) => {
+    links = links || {};
+    const names = Object.keys(links).filter((n) => n && n.length > 2).sort((a, b) => b.length - a.length);
+    const parts = ["(?:https?://[^\\s]+|/app/[^\\s]+)"];
+    if (names.length) parts.push("(?<![\\w/-])(?:" + names.map(reEsc).join("|") + ")(?![\\w-])");
+    const re = new RegExp(parts.join("|"), "g");
+    let html = "", last = 0, m;
+    while ((m = re.exec(text))) {
+      const isUrl = /^(\/app\/|https?:)/.test(m[0]);
+      const tok = isUrl ? m[0].replace(/[.,;:)]+$/, "") : m[0];
+      html += esc(text.slice(last, m.index));
+      if (isUrl) {
+        const label = tok.startsWith("/app/") ? "View in list \u2197" : tok;
+        html += `<a href="${esc(tok)}" target="_blank" rel="noopener">${esc(label)}</a>`;
+      } else {
+        html += `<a href="${esc(links[tok])}" target="_blank" rel="noopener">${esc(tok)}</a>`;
+      }
+      last = m.index + tok.length;
+      re.lastIndex = last;
+    }
+    return html + esc(text.slice(last));
+  };
+
+  const add = (who, text, links) => {
     const $m = $("<div>").css({ margin: "8px 0", whiteSpace: "pre-wrap" });
-    $m.append($("<b>").text(who + ": ")).append(document.createTextNode(text));
+    $m.append($("<b>").text(who + ": ")).append($("<span>").html(linkify(text, links)));
     $log.append($m);
     $log.scrollTop($log[0].scrollHeight);
   };
@@ -86,20 +117,29 @@ frappe.pages["ai-assistant"].on_page_load = function (wrapper) {
   const send = () => {
     const q = $input.val().trim();
     if (!q) return;
-    add("You", q);
+    add("You", q, {});
     $input.val("");
-    const $wait = $("<div class='text-muted'>thinking...</div>");
+    const $wait = $("<div class='text-muted'>thinking... <span>0</span>s</div>");
     $log.append($wait);
+    $log.scrollTop($log[0].scrollHeight);
+    const t0 = Date.now();
+    const tick = setInterval(() => $wait.find("span").text(Math.round((Date.now() - t0) / 1000)), 1000);
+    $b.find(".ai-send").prop("disabled", true);
+    const done = () => { clearInterval(tick); $wait.remove(); $b.find(".ai-send").prop("disabled", false); };
     frappe.call({
       method: "supreme_utility.ai_assistant.api.ask",
       args: { question: q, provider_id: $sel.val() },
       callback: (r) => {
-        $wait.remove();
+        done();
         const a = r.message.answer;
-        add("AI", a);
-        speak(a);
+        add("AI", a, r.message.links);
+        if (r.message.note) {
+          $log.append($("<div class='text-muted small'>").text("(" + r.message.note + ")"));
+          $log.scrollTop($log[0].scrollHeight);
+        }
+        speak(a.replace(/https?:\/\/\S+|\/app\/\S+/g, ""));
       },
-      error: () => $wait.remove(),
+      error: () => done(),
     });
   };
 

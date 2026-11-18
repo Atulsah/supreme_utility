@@ -4,6 +4,10 @@ import json
 
 import frappe
 
+from supreme_utility.ai_assistant.business_tools import BIZ_FUNCS, BIZ_PERM, BIZ_TOOLS
+from supreme_utility.ai_assistant.explore_tools import (
+	EXPLORE_FUNCS, EXPLORE_PERM, EXPLORE_TOOLS, form_url,
+)
 from supreme_utility.ai_assistant.hr_tools import HR_FUNCS, HR_PERM, HR_TOOLS
 
 TOOLS = [
@@ -271,20 +275,93 @@ _PERM = {
 	"get_last_payments": "Payment Entry",
 }
 _PERM.update(HR_PERM)
+_PERM.update(BIZ_PERM)
+_PERM.update(EXPLORE_PERM)
 _FUNCS.update(HR_FUNCS)
+_FUNCS.update(BIZ_FUNCS)
+_FUNCS.update(EXPLORE_FUNCS)
+# 360-degree tools first, so the AI prefers them
+TOOLS[:0] = EXPLORE_TOOLS
+TOOLS.extend(BIZ_TOOLS)
 TOOLS.extend(HR_TOOLS)
+
+# ---------------- Clickable links ----------------
+# Which doctype the "name" of a returned row belongs to, per tool
+_ROW_DOCTYPE = {
+	"get_last_bill": "Sales Invoice",
+	"get_customer_outstanding": "Sales Invoice",
+	"get_overdue_invoices": "Sales Invoice",
+	"get_last_sales_orders": "Sales Order",
+	"get_pending_sales_orders": "Sales Order",
+	"get_last_delivery_notes": "Delivery Note",
+	"get_last_payments": "Payment Entry",
+	"get_pending_purchase_orders": "Purchase Order",
+	"get_last_purchase_invoices": "Purchase Invoice",
+	"get_supplier_outstanding": "Purchase Invoice",
+	"get_leave_applications": "Leave Application",
+	"get_last_salary_slips": "Salary Slip",
+	"get_expense_claims": "Expense Claim",
+}
+# Fields whose value is the ID of a document
+_KEY_DOCTYPE = {
+	"invoice": "Sales Invoice", "sales_invoice": "Sales Invoice", "sales_order": "Sales Order",
+	"purchase_order": "Purchase Order", "purchase_invoice": "Purchase Invoice",
+	"delivery_note": "Delivery Note", "customer": "Customer", "supplier": "Supplier",
+	"item_code": "Item", "employee": "Employee",
+}
+_NAME_FIELDS = ("customer_name", "supplier_name", "party_name", "employee_name")
+
+
+def _collect_links(obj, row_dt, out):
+	"""Collect {visible text: url} for every document ID found in a tool result."""
+	if isinstance(obj, list):
+		for x in obj:
+			_collect_links(x, row_dt, out)
+		return
+	if not isinstance(obj, dict):
+		return
+	dt = obj.get("doctype") or (row_dt if "name" in obj else None)
+	if dt and obj.get("name"):
+		url = form_url(dt, obj["name"])
+		out.setdefault(str(obj["name"]), url)
+		# also link the readable name of a party / employee row
+		if dt in ("Customer", "Supplier", "Employee"):
+			for f in _NAME_FIELDS:
+				if obj.get(f):
+					out.setdefault(str(obj[f]), url)
+	for k, v in obj.items():
+		if k in _KEY_DOCTYPE and isinstance(v, str) and v:
+			out.setdefault(v, form_url(_KEY_DOCTYPE[k], v))
+			if k == "item_code" and obj.get("item_name"):
+				out.setdefault(str(obj["item_name"]), form_url("Item", v))
+			if k == "customer" and obj.get("customer_name"):
+				out.setdefault(str(obj["customer_name"]), form_url("Customer", v))
+			if k == "supplier" and obj.get("supplier_name"):
+				out.setdefault(str(obj["supplier_name"]), form_url("Supplier", v))
+		elif k == "party" and isinstance(v, str) and obj.get("party_type") in ("Customer", "Supplier"):
+			out.setdefault(v, form_url(obj["party_type"], v))
+		elif isinstance(v, (list, dict)) and k != "matches":
+			_collect_links(v, None if k == "items" else row_dt, out)
 
 
 def run_tool(name, args):
 	"""Runs a tool call from the AI and always returns a JSON-safe dict."""
 	try:
+		if name not in _FUNCS:
+			return {"error": f"Unknown tool {name}"}
 		if name in HR_FUNCS and "hrms" not in frappe.get_installed_apps():
 			return {"error": "The HRMS app is not installed on this site"}
-		frappe.has_permission(_PERM.get(name, "Sales Invoice"), "read", throw=True)
+		perm = _PERM.get(name, "Sales Invoice")
+		if perm:
+			frappe.has_permission(perm, "read", throw=True)
 		out = _FUNCS[name](**(args or {}))
 	except frappe.PermissionError:
 		out = {"error": "You do not have permission to access this data"}
 	except Exception as e:
 		frappe.log_error(frappe.get_traceback(), "AI Assistant tool error")
 		out = {"error": str(e)}
-	return json.loads(json.dumps(out, default=str))
+	out = json.loads(json.dumps(out, default=str))
+	links = getattr(frappe.local, "ai_links", None)
+	if links is not None and isinstance(out, dict) and not out.get("error"):
+		_collect_links(out, _ROW_DOCTYPE.get(name), links)
+	return out

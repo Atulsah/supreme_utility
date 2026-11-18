@@ -15,28 +15,32 @@ class ProviderError(Exception):
 	pass
 
 
+class BusyError(ProviderError):
+	"""Server busy / overloaded / rate limited / not reachable: worth trying another model or provider."""
+
+
 RETRY_CODES = (429, 500, 502, 503, 504)
 
 
-def _post(url, headers, body, retries=3):
-	"""Retries automatically when the server is busy (503/429): after 2s, 4s, 6s."""
+def _post(url, headers, body, retries=1):
+	"""Fails fast: one quick retry after 2s, then BusyError so the next model / provider is tried."""
 	import time
 
 	last = None
 	for attempt in range(retries + 1):
 		try:
-			r = requests.post(url, headers=headers, json=body, timeout=(10, 45))
+			r = requests.post(url, headers=headers, json=body, timeout=(8, 40))
 		except requests.exceptions.RequestException as e:
-			last = f"network: {e}"
+			last = f"network: {str(e)[:200]}"
 		else:
 			if r.ok:
 				return r.json()
-			last = f"{r.status_code}: {r.text[:600]}"
+			last = f"{r.status_code}: {r.text[:300]}"
 			if r.status_code not in RETRY_CODES:
 				raise ProviderError(last)
 		if attempt < retries:
-			time.sleep(2 * (attempt + 1))
-	raise ProviderError(f"The AI is busy or not responding. Please try again in a moment. ({last})")
+			time.sleep(2)
+	raise BusyError(last)
 
 
 class BaseProvider:
@@ -58,7 +62,7 @@ class ClaudeProvider(BaseProvider):
 		msgs = [{"role": "user", "content": question}]
 		for _ in range(max_steps):
 			d = _post(url, headers, {
-				"model": self.model, "max_tokens": 1000,
+				"model": self.model, "max_tokens": 2500,
 				"system": system, "tools": t, "messages": msgs,
 			})
 			if d.get("stop_reason") != "tool_use":
@@ -112,12 +116,31 @@ class GeminiProvider(BaseProvider):
 		url = f"{base}/models/{self.model}:generateContent"
 		headers = {"x-goog-api-key": self.api_key}
 		contents = [{"role": "user", "parts": [{"text": question}]}]
+		# Less "thinking" = much faster answers for simple data questions
+		m = self.model.lower()
+		think = {}
+		if "2.5-flash" in m:
+			think = {"thinkingConfig": {"thinkingBudget": 0}}
+		elif m.startswith("gemini-3"):
+			think = {"thinkingConfig": {"thinkingLevel": "low"}}
 		for _ in range(max_steps):
-			d = _post(url, headers, {
+			body = {
 				"systemInstruction": {"parts": [{"text": system}]},
 				"contents": contents,
 				"tools": [{"functionDeclarations": tools}],
-			})
+			}
+			if think:
+				body["generationConfig"] = think
+			try:
+				d = _post(url, headers, body)
+			except BusyError:
+				raise
+			except ProviderError as e:
+				if not think or "thinking" not in str(e).lower():
+					raise
+				think = {}  # this model does not accept the setting: retry without it
+				body.pop("generationConfig", None)
+				d = _post(url, headers, body)
 			if not d.get("candidates"):
 				raise ProviderError("Gemini returned no answer (it may have been blocked)")
 			content = d["candidates"][0].get("content", {})
